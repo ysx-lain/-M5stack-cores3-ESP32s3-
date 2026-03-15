@@ -807,38 +807,48 @@ void handleTouch() {
 }
 
 // ========== LLM任务 - 运行在核心0，UI在核心1，分离降低UI占用 ==========
+// 全局回调处理
+void onAsrResult(String data, bool isFinish, int index) {
+    if (isFinish && data.length() > 0) {
+        processLlmInference(data);
+    }
+}
+
+void onLlmResult(String data, bool isFinish, int index) {
+    currentResponse += data;
+    if (isFinish) {
+        chatHistory.push_back({"assistant", currentResponse});
+        if (chatHistory.size() > MAX_CHAT_HISTORY) {
+            chatHistory.erase(chatHistory.begin());
+        }
+        chatNeedUpdate = true;
+
+        if (llm_connected) {
+            module_llm.tts.inference(workIds.tts, currentResponse);
+        }
+        broadcastMessage("chat", "{\"role\":\"assistant\",\"content\":\"" + currentResponse + "\"}");
+
+        currentResponse = "";
+        isResponding = false;
+    }
+}
+
 void llmTask(void *arg) {
+    // 注册回调
+    module_llm.msg.registerAsrCallback(onAsrResult);
+    module_llm.msg.registerLlmCallback(onLlmResult);
+
     LlmCommand cmd;
     for(;;) {
-        if (xQueueReceive(llmCommandQueue, &cmd, portMAX_DELAY) == pdTRUE) {
+        if (xQueueReceive(llmCommandQueue, &cmd, 0) == pdTRUE) {
             switch(cmd.type) {
                 case CMD_ASR_START:
                     isResponding = true;
                     chatNeedUpdate = true;
                     if (llm_connected) {
+                        currentResponse = "";
                         module_llm.tts.inference(workIds.tts, "请稍等，正在听");
-                        // 开始ASR
-                        module_llm.asr.start(workIds.asr);
-                        // 轮询等待结果
-                        String asrResult = "";
-                        int timeout = 0;
-                        while(timeout < 30000 && !module_llm.asr.isFinish()) {
-                            delay(100);
-                            timeout += 100;
-                            module_llm.update();
-                        }
-                        if (module_llm.asr.isFinish()) {
-                            asrResult = module_llm.asr.getResult();
-                            if (asrResult.length() > 0) {
-                                processLlmInference(asrResult);
-                            } else {
-                                isResponding = false;
-                            }
-                        } else {
-                            isResponding = false;
-                        }
-                    } else {
-                        isResponding = false;
+                        // ASR已在setup中配置好，数据会自动通过回调
                     }
                     break;
 
@@ -877,25 +887,9 @@ void processLlmInference(String asrText) {
     prompt += "assistant: ";
 
     if (llm_connected) {
-        // 当前版本API: 第三个参数是 request_id
+        // inferenceAndWaitResult 使用回调
         String reqId = "req_" + String(millis());
         module_llm.llm.inference(workIds.llm, prompt, reqId);
-        // 等待推理完成获取结果
-        while(!module_llm.llm.isFinish()) {
-            module_llm.update();
-            delay(10);
-        }
-        currentResponse = module_llm.llm.getResult();
-        chatHistory.push_back({"assistant", currentResponse});
-        chatNeedUpdate = true;
-
-        if (llm_connected) {
-            module_llm.tts.inference(workIds.tts, currentResponse);
-        }
-        broadcastMessage("chat", "{\"role\":\"assistant\",\"content\":\"" + currentResponse + "\"}");
-
-        currentResponse = "";
-        isResponding = false;
     }
 }
 
