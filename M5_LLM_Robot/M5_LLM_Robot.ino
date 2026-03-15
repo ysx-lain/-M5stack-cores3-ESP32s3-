@@ -489,7 +489,7 @@ void drawChatApp() {
     M5.Display.setTextColor(WHITE);
     M5.Display.setTextSize(1.8);
     M5.Display.setCursor(15, 12);
-    M5.Display.print(apps[0].name);
+    M5.Print(apps[0].name);
 
     // 对话区域
     M5.Display.drawRect(5, 48, SCREEN_WIDTH - 10, 135, CARD_BORDER);
@@ -505,7 +505,7 @@ void drawChatApp() {
     if (lastResponding != (int)isResponding || fullRedrawNeeded) {
         M5.Display.fillRect(60, 190, 200, 48, M5.Display.color565(245, 245, 245));
         M5.Display.setCursor(70, 205);
-        M5.Display.print(isResponding ? F("思考中...") : F("点击麦克风说话"));
+        M5.Display.Print(isResponding ? F("思考中...") : F("点击麦克风说话"));
         lastResponding = isResponding;
     }
 
@@ -526,7 +526,7 @@ void drawChatApp() {
             M5.Display.setTextColor(msg.role == "user" ? apps[0].color : TEXT_COLOR);
             M5.Display.setCursor(15, y);
             String prefix = msg.role == "user" ? F("你: ") : F("AI: ");
-            M5.Display.print(prefix);
+            M5.Display.Print(prefix);
 
             // 自动换行
             String content = msg.content;
@@ -538,7 +538,7 @@ void drawChatApp() {
                     if (y > 165) break;
                 }
                 M5.Display.setCursor(x, y);
-                M5.Display.print(c);
+                M5.Display.Print(c);
                 x += 8;
             }
             y += lineHeight;
@@ -555,27 +555,27 @@ void drawControlApp() {
     M5.Display.setTextColor(WHITE);
     M5.Display.setTextSize(1.8);
     M5.Display.setCursor(15, 12);
-    M5.Display.print(apps[1].name);
+    M5.Display.Print(apps[1].name);
 
     // 控制按钮 - WiFi重连
     M5.Display.fillRoundRect(10, 60, SCREEN_WIDTH - 20, 50, 8, apps[1].color);
     M5.Display.setTextSize(1.5);
     M5.Display.setTextColor(WHITE);
     M5.Display.setCursor(80, 82);
-    M5.Display.print(F("重新连接WiFi"));
+    M5.Display.Print(F("重新连接WiFi"));
 
     // 蓝牙扫描按钮 - 预留
     M5.Display.fillRoundRect(10, 120, SCREEN_WIDTH - 20, 50, 8, bluetooth_enabled ? apps[1].color : M5.Display.color565(200, 200, 200));
     M5.Display.setTextSize(1.5);
     M5.Display.setTextColor(WHITE);
     M5.Display.setCursor(80, 142);
-    M5.Display.print(F("蓝牙扫描 (预留)"));
+    M5.Display.Print(F("蓝牙扫描 (预留)"));
 
     // 设备列表标题
     M5.Display.setTextSize(1);
     M5.Display.setTextColor(TEXT_COLOR);
     M5.Display.setCursor(15, 185);
-    M5.Display.print(F("已连接设备:"));
+    M5.Display.Print(F("已连接设备:"));
 
     // 页面指示器
     int centerX = SCREEN_WIDTH / 2;
@@ -594,13 +594,13 @@ void drawEmojiApp() {
     M5.Display.setTextColor(WHITE);
     M5.Display.setTextSize(1.8);
     M5.Display.setCursor(15, 12);
-    M5.Display.print(apps[2].name);
+    M5.Display.Print(apps[2].name);
 
     // 提示文字
     M5.Display.setTextSize(1.2);
     M5.Display.setTextColor(M5.Display.color565(100, 100, 100));
     M5.Display.setCursor(60, 210);
-    M5.Display.print(F("摇晃切换表情!"));
+    M5.Display.Print(F("摇晃切换表情!"));
 
     // 表情区域
     if (currentEmoji != lastEmoji || fullRedrawNeeded) {
@@ -665,7 +665,7 @@ void drawSettingsApp() {
     M5.Display.setTextColor(WHITE);
     M5.Display.setTextSize(1.8);
     M5.Display.setCursor(15, 12);
-    M5.Display.print(apps[3].name);
+    M5.Display.Print(apps[3].name);
 
     if (fullRedrawNeeded) {
         M5.Display.fillScreen(WHITE);
@@ -676,9 +676,9 @@ void drawSettingsApp() {
             y += 8;
             M5.Display.setTextColor(TEXT_COLOR);
             M5.Display.setCursor(15, y);
-            M5.Display.print(label);
+            M5.Display.Print(label);
             M5.Display.setCursor(160, y);
-            M5.Display.print(value);
+            M5.Display.Print(value);
             y += 28;
         };
 
@@ -915,7 +915,7 @@ void handleWebRoot() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>M5 LLM Robot 配置</title>
+  <title>M5 LLM Robot WiFi配置</title>
   <style>
     body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
     .form-group { margin-bottom: 15px; }
@@ -1038,5 +1038,3 @@ void loop() {
         webSocket.loop();
     }
 }
-
-    if (t.state == m
