@@ -24,9 +24,6 @@
 #include <freertos/task.h>
 #include <vector>
 
-// 包含中文字库
-#include <M5Unified/fonts/efontCN_12.h>
-
 // ========== 全局配置存储 ==========
 struct Config {
     char wifi_ssid[32];
@@ -47,10 +44,10 @@ struct App {
 };
 
 const App apps[MAX_APPS] = {
-    {"聊天",    "💬", 0x45FD},   // 蓝色
-    {"控制",    "🎮", 0x7D40},   // 绿色
-    {"表情",    "😊", 0xFD20},   // 黄色
-    {"设置",    "⚙️", 0x7BEF}    // 紫色
+    {"Chat",    "💬", 0x45FD},   // Blue
+    {"Control", "🎮", 0x7D40},   // Green
+    {"Emoji",   "😊", 0xFD20},   // Yellow
+    {"Settings","⚙️", 0x7BEF}    // Purple
 };
 
 // ========== 全局对象 ==========
@@ -217,7 +214,7 @@ void drawSplashAnimation() {
     M5.Display.setTextDatum(MC_DATUM);
     M5.Display.drawString(F("M5 LLM Robot"), SCREEN_WIDTH/2, 60);
     M5.Display.setTextSize(1);
-    M5.Display.drawString(F("初始化中..."), SCREEN_WIDTH/2, 90);
+    M5.Display.drawString(F("Initializing..."), SCREEN_WIDTH/2, 90);
     M5.Display.setTextDatum(TL_DATUM);
 
     // 旋转加载动画
@@ -236,8 +233,6 @@ void initHardware() {
     M5.Display.fillScreen(BG_COLOR);
     M5.Display.setTextColor(TEXT_COLOR);
     M5.Display.setTextWrap(false);
-    // 设置中文字体
-    M5.Display.setFont(&fonts::efontCN_12);
 
     // 开启扬声器
     M5.Speaker.begin();
@@ -257,12 +252,12 @@ bool initNetwork() {
         M5.Display.fillScreen(BG_COLOR);
         M5.Display.setTextSize(1.5);
         M5.Display.setCursor(15, 60);
-        M5.Display.println(F("未找到WiFi配置"));
-        M5.Display.println(F("请通过浏览器配置"));
+        M5.Display.println(F("No WiFi config"));
+        M5.Display.println(F("Configure via browser"));
         M5.Display.println(F("IP: 192.168.4.1"));
         M5.Display.setCursor(15, 140);
-        M5.Display.println(F("打开配置页面"));
-        M5.Display.println(F("输入WiFi信息"));
+        M5.Display.println(F("Open config page"));
+        M5.Display.println(F("Enter WiFi info"));
 
         // 开启AP供配置
         WiFi.softAP("M5-LLM-Setup");
@@ -307,7 +302,7 @@ bool initNetwork() {
 void initLlmModule() {
     M5.Display.fillScreen(BG_COLOR);
     M5.Display.setCursor(15, 60);
-    M5.Display.println(F("检测LLM模块..."));
+    M5.Display.println(F("Detecting LLM Module..."));
     M5.Display.display();
 
     // CoreS3 PortC: RX=18, TX=17
@@ -325,15 +320,15 @@ void initLlmModule() {
     if (!llm_connected) {
         M5.Display.fillRect(15, 90, 280, 30, BG_COLOR);
         M5.Display.setCursor(15, 90);
-        M5.Display.println(F("LLM模块未连接"));
+        M5.Display.println(F("LLM Module not connected"));
         delay(2000);
         return;
     }
 
     M5.Display.fillRect(15, 90, 280, 30, BG_COLOR);
     M5.Display.setCursor(15, 90);
-    M5.Display.println(F("LLM模块已连接"));
-    M5.Display.println(F("设置波特率..."));
+    M5.Display.println(F("LLM Module connected"));
+    M5.Display.println(F("Setting baud rate..."));
     M5.Display.display();
 
     // 提速到1.5Mbps
@@ -354,37 +349,37 @@ void initLlmModule() {
     // 配置Audio模块
     module_llm.audio.setup();
 
-    // 配置KWS - 中文唤醒词
+    // 配置KWS - wakeup word
     m5_module_llm::ApiKwsSetupConfig_t kwsConfig;
-    kwsConfig.kws = "你好你好";
-    workIds.kws = module_llm.kws.setup(kwsConfig, "kws_setup", "zh_CN");
+    kwsConfig.kws = "HELLO";
+    workIds.kws = module_llm.kws.setup(kwsConfig, "kws_setup", "en_US");
 
-    // 配置VAD - 语音检测
+    // 配置VAD - voice activity detection
     m5_module_llm::ApiVadSetupConfig_t vadConfig;
     vadConfig.input = {"sys.pcm", workIds.kws};
     workIds.vad = module_llm.vad.setup(vadConfig, "vad_setup");
 
-    // 配置Whisper ASR - 中文
+    // 配置Whisper ASR - English
     m5_module_llm::ApiWhisperSetupConfig_t whisperConfig;
     whisperConfig.input = {"sys.pcm", workIds.kws, workIds.vad};
-    whisperConfig.language = "zh";
+    whisperConfig.language = "en";
     workIds.whisper = module_llm.whisper.setup(whisperConfig, "whisper_setup");
 
-    // 配置LLM - 中文提示词
+    // 配置LLM - prompt
     m5_module_llm::ApiLlmSetupConfig_t llmConfig;
-    llmConfig.prompt = "你是一个友好的AI助手，回答简洁自然。";
+    llmConfig.prompt = "You are a friendly AI assistant. Keep answers short and natural.";
     llmConfig.max_token_len = 256;
     workIds.llm = module_llm.llm.setup(llmConfig, "llm_setup");
 
-    // 配置TTS - 中文
+    // 配置TTS - English
     m5_module_llm::ApiTtsSetupConfig_t ttsConfig;
-    ttsConfig.model = "single_speaker_chinese_fast";
-    workIds.tts = module_llm.tts.setup(ttsConfig, "tts_setup", "zh_CN");
+    ttsConfig.model = "single_speaker_english_fast";
+    workIds.tts = module_llm.tts.setup(ttsConfig, "tts_setup", "en_US");
 
     M5.Display.fillRect(15, 120, 280, 60, BG_COLOR);
     M5.Display.setCursor(15, 120);
-    M5.Display.println(F("初始化完成!"));
-    M5.Display.println(F("唤醒词: 你好你好"));
+    M5.Display.println(F("Init done!"));
+    M5.Display.println(F("Wakeup: HELLO"));
     M5.Display.display();
     delay(1200);
 }
@@ -403,26 +398,26 @@ void drawSplashScreen() {
     auto drawStatus = [&](const char* name, bool ok) {
         M5.Display.setCursor(15, y);
         M5.Display.print(name);
-        M5.Display.setCursor(180, y);
+        M5.Display.setCursor(140, y);
         if (ok) {
             M5.Display.setTextColor(M5.Display.color565(50, 200, 50));
-            M5.Display.print(F("✓ 正常"));
+            M5.Display.print(F("✓ OK"));
         } else {
             M5.Display.setTextColor(M5.Display.color565(200, 50, 50));
-            M5.Display.print(F("✗ 异常"));
+            M5.Display.print(F("✗ Error"));
         }
         M5.Display.setTextColor(TEXT_COLOR);
         y += 30;
     };
 
-    drawStatus("IMU传感器", imu_ok);
-    drawStatus("WiFi连接", WiFi.status() == WL_CONNECTED);
-    drawStatus("LLM模块", llm_connected);
-    drawStatus("蓝牙接口", bluetooth_enabled ? F("预留") : F("预留"));
+    drawStatus("IMU Sensor", imu_ok);
+    drawStatus("WiFi", WiFi.status() == WL_CONNECTED);
+    drawStatus("LLM Module", llm_connected);
+    drawStatus("Bluetooth", bluetooth_enabled ? F("Reserved") : F("Reserved"));
 
     M5.Display.setTextSize(1);
     M5.Display.setCursor(15, 180);
-    M5.Display.print(F("点击任意位置进入主界面"));
+    M5.Display.print(F("Tap anywhere to go home"));
 }
 
 // ========== 绘制桌面 ==========
@@ -527,7 +522,7 @@ void drawChatApp() {
     if (lastResponding != (int)isResponding || fullRedrawNeeded) {
         M5.Display.fillRect(60, 190, 200, 48, M5.Display.color565(245, 245, 245));
         M5.Display.setCursor(70, 205);
-        M5.Display.print(isResponding ? F("思考中...") : F("点击麦克风说话"));
+        M5.Display.print(isResponding ? F("Thinking...") : F("Tap mic to speak");
         lastResponding = isResponding;
     }
 
@@ -579,25 +574,25 @@ void drawControlApp() {
     M5.Display.setCursor(15, 12);
     M5.Display.print(apps[1].name);
 
-    // 控制按钮 - WiFi重连
+    // 控制按钮 - Reconnect WiFi
     M5.Display.fillRoundRect(10, 60, SCREEN_WIDTH - 20, 50, 8, apps[1].color);
     M5.Display.setTextSize(1.5);
     M5.Display.setTextColor(WHITE);
     M5.Display.setCursor(80, 82);
-    M5.Display.print(F("重新连接WiFi"));
+    M5.Display.print(F("Reconnect WiFi"));
 
-    // 蓝牙扫描按钮 - 预留
+    // Bluetooth scan button - reserved
     M5.Display.fillRoundRect(10, 120, SCREEN_WIDTH - 20, 50, 8, bluetooth_enabled ? apps[1].color : M5.Display.color565(200, 200, 200));
     M5.Display.setTextSize(1.5);
     M5.Display.setTextColor(WHITE);
     M5.Display.setCursor(80, 142);
-    M5.Display.print(F("蓝牙扫描 (预留)"));
+    M5.Display.print(F("BT Scan (Reserved)"));
 
-    // 设备列表标题
+    // Device list title
     M5.Display.setTextSize(1);
     M5.Display.setTextColor(TEXT_COLOR);
     M5.Display.setCursor(15, 185);
-    M5.Display.print(F("已连接设备:"));
+    M5.Display.print(F("Connected devices:"));
 
     // 页面指示器
     int centerX = SCREEN_WIDTH / 2;
@@ -622,7 +617,7 @@ void drawEmojiApp() {
     M5.Display.setTextSize(1.2);
     M5.Display.setTextColor(M5.Display.color565(100, 100, 100));
     M5.Display.setCursor(60, 210);
-    M5.Display.print(F("摇晃切换表情!"));
+    M5.Display.print(F("Shake to change emoji!"));
 
     // 表情区域
     if (currentEmoji != lastEmoji || fullRedrawNeeded) {
@@ -699,17 +694,17 @@ void drawSettingsApp() {
             M5.Display.setTextColor(TEXT_COLOR);
             M5.Display.setCursor(15, y);
             M5.Display.print(label);
-            M5.Display.setCursor(160, y);
+            M5.Display.setCursor(120, y);
             M5.Display.print(value);
             y += 28;
         };
 
-        drawSetting("WiFi", WiFi.status() == WL_CONNECTED ? "已连接" : "未连接");
+        drawSetting("WiFi", WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected");
         drawSetting("IP", WiFi.localIP().toString().c_str());
-        drawSetting("LLM模块", llm_connected ? "已连接" : "未连接");
-        drawSetting("IMU传感器", imu_ok ? "正常" : "异常");
-        drawSetting("蓝牙接口", "已预留");
-        drawSetting("版本", "v3.0.0");
+        drawSetting("LLM Module", llm_connected ? "Connected" : "Disconnected");
+        drawSetting("IMU Sensor", imu_ok ? "OK" : "Error");
+        drawSetting("Bluetooth", "Reserved");
+        drawSetting("Version", "v3.0.0");
     }
 
     // 页面指示器
@@ -856,7 +851,7 @@ void llmTask(void *arg) {
                 }
                 // KWS唤醒检测
                 else if (msg.work_id == workIds.kws) {
-                    module_llm.tts.inference(workIds.tts, "我在听");
+                    module_llm.tts.inference(workIds.tts, "Listening...");
                     isResponding = true;
                     chatNeedUpdate = true;
                 }
@@ -875,7 +870,7 @@ void llmTask(void *arg) {
                     isResponding = true;
                     chatNeedUpdate = true;
                     if (llm_connected) {
-                        module_llm.tts.inference(workIds.tts, "请说");
+                        module_llm.tts.inference(workIds.tts, "Speak now");
                     }
                     break;
 
