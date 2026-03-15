@@ -807,48 +807,34 @@ void handleTouch() {
 }
 
 // ========== LLM任务 - 运行在核心0，UI在核心1，分离降低UI占用 ==========
-// 全局回调处理
-void onAsrResult(String data, bool isFinish, int index) {
-    if (isFinish && data.length() > 0) {
-        processLlmInference(data);
-    }
-}
-
-void onLlmResult(String data, bool isFinish, int index) {
-    currentResponse += data;
-    if (isFinish) {
-        chatHistory.push_back({"assistant", currentResponse});
-        if (chatHistory.size() > MAX_CHAT_HISTORY) {
-            chatHistory.erase(chatHistory.begin());
-        }
-        chatNeedUpdate = true;
-
-        if (llm_connected) {
-            module_llm.tts.inference(workIds.tts, currentResponse);
-        }
-        broadcastMessage("chat", "{\"role\":\"assistant\",\"content\":\"" + currentResponse + "\"}");
-
-        currentResponse = "";
-        isResponding = false;
-    }
-}
-
 void llmTask(void *arg) {
-    // 注册回调
-    module_llm.msg.registerAsrCallback(onAsrResult);
-    module_llm.msg.registerLlmCallback(onLlmResult);
-
     LlmCommand cmd;
     for(;;) {
-        if (xQueueReceive(llmCommandQueue, &cmd, 0) == pdTRUE) {
+        if (xQueueReceive(llmCommandQueue, &cmd, portMAX_DELAY) == pdTRUE) {
             switch(cmd.type) {
                 case CMD_ASR_START:
                     isResponding = true;
                     chatNeedUpdate = true;
                     if (llm_connected) {
-                        currentResponse = "";
                         module_llm.tts.inference(workIds.tts, "请稍等，正在听");
-                        // ASR已在setup中配置好，数据会自动通过回调
+                        // 开始ASR推理获取结果
+                        String asrResult;
+                        String reqId = "asr_inf_" + String(millis());
+                        module_llm.asr.inference(workIds.asr, "start", reqId);
+                        // 使用waitAndTakeMsg阻塞等待结果
+                        if (module_llm.msg.waitAndTakeMsg(reqId, [&asrResult](m5_module_llm::ResponseMsg_t &msg) {
+                            asrResult = msg.raw_msg;
+                        }, 30000)) {
+                            if (asrResult.length() > 0) {
+                                processLlmInference(asrResult);
+                            } else {
+                                isResponding = false;
+                            }
+                        } else {
+                            isResponding = false;
+                        }
+                    } else {
+                        isResponding = false;
                     }
                     break;
 
@@ -887,9 +873,21 @@ void processLlmInference(String asrText) {
     prompt += "assistant: ";
 
     if (llm_connected) {
-        // inferenceAndWaitResult 使用回调
-        String reqId = "req_" + String(millis());
-        module_llm.llm.inference(workIds.llm, prompt, reqId);
+        // 使用inferenceAndWaitResult阻塞等待结果
+        module_llm.llm.inferenceAndWaitResult(workIds.llm, prompt, [this](String &result) {
+            currentResponse = result;
+        }, 60000);
+
+        chatHistory.push_back({"assistant", currentResponse});
+        chatNeedUpdate = true;
+
+        if (llm_connected) {
+            module_llm.tts.inference(workIds.tts, currentResponse);
+        }
+        broadcastMessage("chat", "{\"role\":\"assistant\",\"content\":\"" + currentResponse + "\"}");
+
+        currentResponse = "";
+        isResponding = false;
     }
 }
 
