@@ -394,7 +394,7 @@ void drawSplashScreen() {
     };
 
     drawStatus("IMU传感器", imu_ok);
-    drawStatus("WiFi连接", WiFi.status() == WL_CONNECTed);
+    drawStatus("WiFi连接", WiFi.status() == WL_CONNECTED);
     drawStatus("LLM模块", llm_connected);
     drawStatus("蓝牙接口", bluetooth_enabled ? F("预留") : F("预留"));
 
@@ -817,10 +817,23 @@ void llmTask(void *arg) {
                     chatNeedUpdate = true;
                     if (llm_connected) {
                         module_llm.tts.inference(workIds.tts, "请稍等，正在听");
-                        // 等待ASR结果
-                        String asrResult;
-                        if (module_llm.asr.getResult(&asrResult)) {
-                            processLlmInference(asrResult);
+                        // 开始ASR
+                        module_llm.asr.start(workIds.asr);
+                        // 轮询等待结果
+                        String asrResult = "";
+                        int timeout = 0;
+                        while(timeout < 30000 && !module_llm.asr.isFinish()) {
+                            delay(100);
+                            timeout += 100;
+                            module_llm.update();
+                        }
+                        if (module_llm.asr.isFinish()) {
+                            asrResult = module_llm.asr.getResult();
+                            if (asrResult.length() > 0) {
+                                processLlmInference(asrResult);
+                            } else {
+                                isResponding = false;
+                            }
                         } else {
                             isResponding = false;
                         }
@@ -839,26 +852,6 @@ void llmTask(void *arg) {
         } else {
             delay(100);
         }
-    }
-}
-
-// ========== LLM结果回调 ==========
-void onLlmResult(String data, bool isFinish, int index) {
-    currentResponse += data;
-    if (isFinish) {
-        chatHistory.push_back({"assistant", currentResponse});
-        if (chatHistory.size() > MAX_CHAT_HISTORY) {
-            chatHistory.erase(chatHistory.begin());
-        }
-        chatNeedUpdate = true;
-
-        if (llm_connected) {
-            module_llm.tts.inference(workIds.tts, currentResponse);
-        }
-        broadcastMessage("chat", "{\"role\":\"assistant\",\"content\":\"" + currentResponse + "\"}");
-
-        currentResponse = "";
-        isResponding = false;
     }
 }
 
@@ -884,7 +877,25 @@ void processLlmInference(String asrText) {
     prompt += "assistant: ";
 
     if (llm_connected) {
-        module_llm.llm.inference(workIds.llm, prompt, onLlmResult);
+        // 当前版本API: 第三个参数是 request_id
+        String reqId = "req_" + String(millis());
+        module_llm.llm.inference(workIds.llm, prompt, reqId);
+        // 等待推理完成获取结果
+        while(!module_llm.llm.isFinish()) {
+            module_llm.update();
+            delay(10);
+        }
+        currentResponse = module_llm.llm.getResult();
+        chatHistory.push_back({"assistant", currentResponse});
+        chatNeedUpdate = true;
+
+        if (llm_connected) {
+            module_llm.tts.inference(workIds.tts, currentResponse);
+        }
+        broadcastMessage("chat", "{\"role\":\"assistant\",\"content\":\"" + currentResponse + "\"}");
+
+        currentResponse = "";
+        isResponding = false;
     }
 }
 
