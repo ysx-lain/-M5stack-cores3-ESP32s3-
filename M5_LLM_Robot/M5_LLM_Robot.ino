@@ -79,7 +79,9 @@ String currentResponse = "";
 
 // ========== LLM工作ID ==========
 struct LlmWorkIds {
-    String asr;
+    String kws;
+    String vad;
+    String whisper;
     String llm;
     String tts;
 } workIds;
@@ -344,10 +346,24 @@ void initLlmModule() {
     M5.Display.println(F("初始化模型..."));
     M5.Display.display();
 
-    // 配置ASR - 中文
-    m5_module_llm::ApiAsrSetupConfig_t asrConfig;
-    asrConfig.model = "sherpa-ncnn-streaming-zipformer-zh-14M-2023-02-17";
-    workIds.asr = module_llm.asr.setup(asrConfig, "asr_setup", "zh_CN");
+    // 配置Audio模块
+    module_llm.audio.setup();
+
+    // 配置KWS - 中文唤醒词
+    m5_module_llm::ApiKwsSetupConfig_t kwsConfig;
+    kwsConfig.kws = "你好你好";
+    workIds.kws = module_llm.kws.setup(kwsConfig, "kws_setup", "zh_CN");
+
+    // 配置VAD - 语音检测
+    m5_module_llm::ApiVadSetupConfig_t vadConfig;
+    vadConfig.input = {"sys.pcm", workIds.kws};
+    workIds.vad = module_llm.vad.setup(vadConfig, "vad_setup");
+
+    // 配置Whisper ASR - 中文
+    m5_module_llm::ApiWhisperSetupConfig_t whisperConfig;
+    whisperConfig.input = {"sys.pcm", workIds.kws, workIds.vad};
+    whisperConfig.language = "zh";
+    workIds.whisper = module_llm.whisper.setup(whisperConfig, "whisper_setup");
 
     // 配置LLM - 中文提示词
     m5_module_llm::ApiLlmSetupConfig_t llmConfig;
@@ -363,8 +379,9 @@ void initLlmModule() {
     M5.Display.fillRect(15, 120, 280, 60, BG_COLOR);
     M5.Display.setCursor(15, 120);
     M5.Display.println(F("初始化完成!"));
+    M5.Display.println(F("唤醒词: 你好你好"));
     M5.Display.display();
-    delay(800);
+    delay(1200);
 }
 
 // ========== 绘制启动屏幕 ==========
@@ -807,34 +824,53 @@ void handleTouch() {
 }
 
 // ========== LLM任务 - 运行在核心0，UI在核心1，分离降低UI占用 ==========
+// 全局接收ASR结果
+void handleAsrResult(String asrResult) {
+    if (asrResult.length() > 0 && !isResponding) {
+        LlmCommand cmd;
+        cmd.type = CMD_CHAT_INFERENCE;
+        cmd.data = asrResult;
+        xQueueSend(llmCommandQueue, &cmd, 0);
+    }
+}
+
 void llmTask(void *arg) {
     LlmCommand cmd;
     for(;;) {
-        if (xQueueReceive(llmCommandQueue, &cmd, portMAX_DELAY) == pdTRUE) {
+        // 处理所有模块消息
+        if (llm_connected) {
+            for (auto& msg : module_llm.msg.responseMsgList) {
+                // ASR (Whisper) 结果
+                if (msg.work_id == workIds.whisper) {
+                    if (msg.object == "asr.utf-8") {
+                        JsonDocument doc;
+                        deserializeJson(doc, msg.raw_msg);
+                        String asrResult = doc["data"].as<String>();
+                        handleAsrResult(asrResult);
+                    }
+                }
+                // KWS唤醒检测
+                else if (msg.work_id == workIds.kws) {
+                    module_llm.tts.inference(workIds.tts, "我在听");
+                    isResponding = true;
+                    chatNeedUpdate = true;
+                }
+            }
+            module_llm.msg.responseMsgList.clear();
+            module_llm.update();
+        } else {
+            delay(100);
+        }
+
+        // 处理队列命令
+        if (xQueueReceive(llmCommandQueue, &cmd, 10) == pdTRUE) {
             switch(cmd.type) {
                 case CMD_ASR_START:
+                    // 手动点击麦克风启动
                     isResponding = true;
                     chatNeedUpdate = true;
                     if (llm_connected) {
-                        module_llm.tts.inference(workIds.tts, "请稍等，正在听");
-                        // 开始ASR推理获取结果
-                        String asrResult;
-                        String reqId = "asr_inf_" + String(millis());
-                        module_llm.asr.inference(workIds.asr, "start", reqId);
-                        // 使用waitAndTakeMsg阻塞等待结果
-                        if (module_llm.msg.waitAndTakeMsg(reqId, [&asrResult](m5_module_llm::ResponseMsg_t &msg) {
-                            asrResult = msg.raw_msg;
-                        }, 30000)) {
-                            if (asrResult.length() > 0) {
-                                processLlmInference(asrResult);
-                            } else {
-                                isResponding = false;
-                            }
-                        } else {
-                            isResponding = false;
-                        }
-                    } else {
-                        isResponding = false;
+                        module_llm.tts.inference(workIds.tts, "请说");
                     }
                     break;
 
@@ -842,11 +878,6 @@ void llmTask(void *arg) {
                     processLlmInference(cmd.data);
                     break;
             }
-        }
-        if (llm_connected) {
-            module_llm.update();
-        } else {
-            delay(100);
         }
     }
 }
@@ -874,8 +905,8 @@ void processLlmInference(String asrText) {
 
     if (llm_connected) {
         // 使用inferenceAndWaitResult阻塞等待结果
-        module_llm.llm.inferenceAndWaitResult(workIds.llm, prompt, [this](String &result) {
-            currentResponse = result;
+        module_llm.llm.inferenceAndWaitResult(workIds.llm, prompt, [](String &result) {
+            currentResponse += result;
         }, 60000);
 
         chatHistory.push_back({"assistant", currentResponse});
