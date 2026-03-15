@@ -25,7 +25,7 @@
 #include <vector>
 
 // 包含中文字库
-#include <fonts/efontCN_12.h>
+#include <M5Unified/fonts/efontCN_12.h>
 
 // ========== 全局配置存储 ==========
 struct Config {
