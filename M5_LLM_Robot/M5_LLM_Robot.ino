@@ -24,6 +24,9 @@
 #include <freertos/task.h>
 #include <vector>
 
+// 包含中文字库
+#include <fonts/efontCN_12.h>
+
 // ========== 全局配置存储 ==========
 struct Config {
     char wifi_ssid[32];
@@ -233,6 +236,8 @@ void initHardware() {
     M5.Display.fillScreen(BG_COLOR);
     M5.Display.setTextColor(TEXT_COLOR);
     M5.Display.setTextWrap(false);
+    // 设置中文字体
+    M5.Display.setFont(&fonts::efontCN_12);
 
     // 开启扬声器
     M5.Speaker.begin();
