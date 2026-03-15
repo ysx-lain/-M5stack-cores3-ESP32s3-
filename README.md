@@ -1,4 +1,7 @@
-# M5Stack CoreS3 LLM 机器人
+# -M5stack-cores3-ESP32s3-
+
+底层系统优化，用于开发物联网和边缘计算产品开发，使用M5stack官方的LLMmodule模块进行小模型测试。
+使用arduino进行开发 ps:编译太慢了.....
 
 ## 功能特点
 
@@ -15,7 +18,7 @@
 ## 项目结构
 
 ```
-M5stack/
+.
 ├── platformio.ini          # PlatformIO 配置
 └── src/
     └── main.cpp            # 主程序代码
@@ -77,7 +80,7 @@ platformio run --target upload
   - TX: 17
 -  Baud rate: 初始115200 → 提升到1500000
 
-## 后续开发步骤建议
+## 后续开发步骤
 
 1. 完成蓝牙功能，添加BLE设备扫描和连接
 2. 添加更多AI功能（YOLO目标检测、VLM视觉识别）
