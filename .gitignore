@@ -1,2 +1,18 @@
-M5Module-LLM
+# PlatformIO
+.pioenvs/
+.pio/
+*.pyc
+__pycache__/
+
+# Arduino
+*.hex
+*.elf
+*.bin
+*.aar
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
 M5Module-LLM/
